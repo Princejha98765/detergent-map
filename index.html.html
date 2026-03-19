@@ -1,0 +1,357 @@
+
+<style>
+  body { margin: 0; }
+  select, button { cursor: pointer; }
+  .btn { padding: 6px 14px; font-size: 13px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); transition: background 0.15s; }
+  .btn:hover { background: var(--color-background-secondary); }
+  .btn.active { background: var(--color-background-secondary); border-color: var(--color-border-primary); font-weight: 500; }
+  .metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 16px; }
+  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .metric-val { font-size: 20px; font-weight: 500; margin: 0; color: var(--color-text-primary); }
+</style>
+
+<div style="padding: 1rem 0;">
+
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: center;">
+    <span style="font-size: 13px; color: var(--color-text-secondary); margin-right: 4px;">Axes:</span>
+    <button class="btn active" id="axisBtn0" onclick="setAxis(0)">Cleaning vs Price</button>
+    <button class="btn" id="axisBtn1" onclick="setAxis(1)">Fabric Care vs Eco</button>
+    <button class="btn" id="axisBtn2" onclick="setAxis(2)">Value vs Premium</button>
+  </div>
+
+  <div style="position: relative; width: 100%; height: 420px;">
+    <canvas id="mapChart"></canvas>
+  </div>
+
+  <div id="brandStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 1.25rem;"></div>
+
+  <div style="margin-top: 1rem; font-size: 12px; color: var(--color-text-tertiary);">
+    Bubble size = number of survey respondents who use that brand as their primary brand. Axes show averaged survey ratings (1–5 scale).
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const raw = [
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:2,arielBetter:4,tideValue:4,eco:5,chemical:3,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:5,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:4},
+  {brand:"Tide",stain:4,expensive:4,gentle:5,arielBetter:4,tideValue:4,eco:4,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:4,gentle:3,arielBetter:5,tideValue:5,eco:4,chemical:5,payEco:3},
+  {brand:"Tide",stain:5,expensive:4,gentle:5,arielBetter:5,tideValue:4,eco:3,chemical:3,payEco:4},
+  {brand:"Tide",stain:4,expensive:4,gentle:5,arielBetter:4,tideValue:3,eco:5,chemical:3,payEco:4},
+  {brand:"Ghadi",stain:3,expensive:5,gentle:3,arielBetter:3,tideValue:3,eco:3,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:4,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:5},
+  {brand:"Tide",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:4,chemical:4,payEco:5},
+  {brand:"Ariel",stain:5,expensive:5,gentle:3,arielBetter:4,tideValue:5,eco:5,chemical:3,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:3,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:4,arielBetter:4,tideValue:5,eco:5,chemical:4,payEco:4},
+  {brand:"Tide",stain:4,expensive:4,gentle:4,arielBetter:5,tideValue:4,eco:4,chemical:3,payEco:2},
+  {brand:"Tide",stain:4,expensive:4,gentle:5,arielBetter:5,tideValue:4,eco:4,chemical:5,payEco:4},
+  {brand:"Other",stain:3,expensive:4,gentle:3,arielBetter:4,tideValue:3,eco:4,chemical:2,payEco:5},
+  {brand:"Tide",stain:3,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:4,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:3,chemical:3,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:4,arielBetter:5,tideValue:4,eco:3,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:5,gentle:3,arielBetter:3,tideValue:3,eco:4,chemical:4,payEco:4},
+  {brand:"Other",stain:5,expensive:4,gentle:4,arielBetter:3,tideValue:5,eco:2,chemical:3,payEco:3},
+  {brand:"Ariel",stain:3,expensive:5,gentle:3,arielBetter:5,tideValue:5,eco:4,chemical:5,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:2,chemical:4,payEco:5},
+  {brand:"Tide",stain:5,expensive:3,gentle:3,arielBetter:3,tideValue:3,eco:4,chemical:5,payEco:2},
+  {brand:"Tide",stain:5,expensive:3,gentle:3,arielBetter:3,tideValue:4,eco:4,chemical:4,payEco:3},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:5,tideValue:4,eco:3,chemical:4,payEco:5},
+  {brand:"Tide",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:4,payEco:4},
+  {brand:"Tide",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:5,eco:5,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:5,chemical:2,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:5,arielBetter:3,tideValue:3,eco:5,chemical:2,payEco:3},
+  {brand:"Ariel",stain:4,expensive:5,gentle:3,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:5,eco:3,chemical:4,payEco:3},
+  {brand:"Ariel",stain:4,expensive:3,gentle:4,arielBetter:3,tideValue:4,eco:3,chemical:3,payEco:4},
+  {brand:"Ariel",stain:5,expensive:5,gentle:4,arielBetter:3,tideValue:5,eco:4,chemical:4,payEco:3},
+  {brand:"Ariel",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:4,chemical:3,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:3,chemical:2,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:3,arielBetter:5,tideValue:4,eco:3,chemical:4,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:5,arielBetter:5,tideValue:3,eco:4,chemical:5,payEco:5},
+  {brand:"Surf Excel",stain:3,expensive:5,gentle:2,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:3,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:4,gentle:3,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:4},
+  {brand:"Tide",stain:3,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:4,chemical:5,payEco:3},
+  {brand:"Other",stain:3,expensive:5,gentle:4,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:2,arielBetter:4,tideValue:4,eco:4,chemical:4,payEco:5},
+  {brand:"Tide",stain:5,expensive:5,gentle:4,arielBetter:3,tideValue:4,eco:4,chemical:2,payEco:5},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:5,eco:4,chemical:3,payEco:3},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:4},
+  {brand:"Other",stain:4,expensive:5,gentle:3,arielBetter:4,tideValue:5,eco:4,chemical:4,payEco:3},
+  {brand:"Ariel",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:5,eco:4,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:2},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:5,eco:5,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:5,arielBetter:4,tideValue:3,eco:5,chemical:4,payEco:5},
+  {brand:"Other",stain:5,expensive:4,gentle:3,arielBetter:4,tideValue:5,eco:3,chemical:4,payEco:2},
+  {brand:"Other",stain:5,expensive:5,gentle:2,arielBetter:5,tideValue:4,eco:3,chemical:5,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:3,arielBetter:4,tideValue:4,eco:3,chemical:4,payEco:3},
+  {brand:"Ariel",stain:4,expensive:4,gentle:4,arielBetter:3,tideValue:5,eco:3,chemical:3,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:3,gentle:4,arielBetter:3,tideValue:5,eco:3,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:4,gentle:3,arielBetter:4,tideValue:3,eco:4,chemical:4,payEco:2},
+  {brand:"Ariel",stain:5,expensive:4,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:3,arielBetter:4,tideValue:4,eco:2,chemical:5,payEco:3},
+  {brand:"Tide",stain:3,expensive:3,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:4,arielBetter:5,tideValue:5,eco:5,chemical:3,payEco:4},
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:3,arielBetter:4,tideValue:3,eco:3,chemical:5,payEco:4},
+  {brand:"Ariel",stain:5,expensive:5,gentle:5,arielBetter:4,tideValue:4,eco:3,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:3,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:2},
+  {brand:"Ghadi",stain:5,expensive:5,gentle:3,arielBetter:4,tideValue:4,eco:4,chemical:5,payEco:5},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:3,arielBetter:5,tideValue:3,eco:5,chemical:4,payEco:4},
+  {brand:"Tide",stain:4,expensive:3,gentle:3,arielBetter:5,tideValue:4,eco:2,chemical:3,payEco:4},
+  {brand:"Other",stain:5,expensive:4,gentle:4,arielBetter:3,tideValue:4,eco:3,chemical:3,payEco:5},
+  {brand:"Ariel",stain:5,expensive:5,gentle:5,arielBetter:4,tideValue:4,eco:4,chemical:4,payEco:4},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:3,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:4,expensive:5,gentle:3,arielBetter:3,tideValue:5,eco:5,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:3,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:4,expensive:3,gentle:5,arielBetter:4,tideValue:5,eco:3,chemical:4,payEco:3},
+  {brand:"Ariel",stain:4,expensive:5,gentle:5,arielBetter:3,tideValue:4,eco:5,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:2,payEco:5},
+  {brand:"Ghadi",stain:5,expensive:5,gentle:5,arielBetter:5,tideValue:4,eco:4,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:3,arielBetter:4,tideValue:3,eco:3,chemical:3,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:3,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:4},
+  {brand:"Tide",stain:5,expensive:4,gentle:4,arielBetter:5,tideValue:5,eco:2,chemical:4,payEco:2},
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:3,arielBetter:4,tideValue:4,eco:5,chemical:3,payEco:3},
+  {brand:"Other",stain:4,expensive:4,gentle:5,arielBetter:3,tideValue:3,eco:4,chemical:3,payEco:5},
+  {brand:"Surf Excel",stain:3,expensive:5,gentle:2,arielBetter:5,tideValue:4,eco:3,chemical:4,payEco:3},
+  {brand:"Ghadi",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:4,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:4,arielBetter:3,tideValue:4,eco:4,chemical:3,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:3,arielBetter:4,tideValue:3,eco:5,chemical:2,payEco:4},
+  {brand:"Other",stain:4,expensive:4,gentle:5,arielBetter:3,tideValue:3,eco:4,chemical:3,payEco:5},
+  {brand:"Tide",stain:4,expensive:3,gentle:5,arielBetter:4,tideValue:4,eco:3,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:3,chemical:3,payEco:3},
+  {brand:"Ariel",stain:4,expensive:5,gentle:2,arielBetter:4,tideValue:4,eco:4,chemical:3,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:4,chemical:5,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:5,payEco:3},
+  {brand:"Tide",stain:5,expensive:4,gentle:5,arielBetter:5,tideValue:4,eco:3,chemical:4,payEco:4},
+  {brand:"Other",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:3,eco:4,chemical:3,payEco:2},
+  {brand:"Surf Excel",stain:3,expensive:5,gentle:2,arielBetter:3,tideValue:4,eco:3,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:3,expensive:4,gentle:4,arielBetter:3,tideValue:4,eco:4,chemical:2,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:5,arielBetter:4,tideValue:3,eco:3,chemical:4,payEco:2},
+  {brand:"Ghadi",stain:4,expensive:3,gentle:4,arielBetter:4,tideValue:3,eco:3,chemical:4,payEco:3},
+  {brand:"Other",stain:4,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:3,payEco:3},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:5,arielBetter:3,tideValue:4,eco:5,chemical:4,payEco:3},
+  {brand:"Tide",stain:4,expensive:3,gentle:3,arielBetter:4,tideValue:5,eco:4,chemical:2,payEco:5},
+  {brand:"Ariel",stain:5,expensive:3,gentle:4,arielBetter:5,tideValue:5,eco:4,chemical:3,payEco:3},
+  {brand:"Tide",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:4,chemical:3,payEco:4},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:5,tideValue:4,eco:4,chemical:3,payEco:4},
+  {brand:"Ariel",stain:5,expensive:3,gentle:5,arielBetter:3,tideValue:4,eco:5,chemical:4,payEco:4},
+  {brand:"Other",stain:4,expensive:3,gentle:2,arielBetter:4,tideValue:4,eco:5,chemical:4,payEco:3},
+  {brand:"Ariel",stain:3,expensive:4,gentle:2,arielBetter:3,tideValue:3,eco:2,chemical:5,payEco:4},
+  {brand:"Tide",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:4},
+  {brand:"Other",stain:4,expensive:4,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:3},
+  {brand:"Tide",stain:3,expensive:4,gentle:4,arielBetter:4,tideValue:3,eco:5,chemical:5,payEco:2},
+  {brand:"Ghadi",stain:3,expensive:4,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:5},
+  {brand:"Other",stain:3,expensive:5,gentle:4,arielBetter:4,tideValue:3,eco:3,chemical:3,payEco:4},
+  {brand:"Tide",stain:4,expensive:4,gentle:4,arielBetter:5,tideValue:5,eco:2,chemical:3,payEco:5},
+  {brand:"Ariel",stain:4,expensive:4,gentle:4,arielBetter:3,tideValue:4,eco:3,chemical:3,payEco:3},
+  {brand:"Ariel",stain:5,expensive:3,gentle:4,arielBetter:3,tideValue:5,eco:5,chemical:3,payEco:3},
+  {brand:"Tide",stain:4,expensive:3,gentle:4,arielBetter:4,tideValue:5,eco:3,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:4,expensive:3,gentle:4,arielBetter:3,tideValue:5,eco:4,chemical:4,payEco:3},
+  {brand:"Tide",stain:4,expensive:5,gentle:5,arielBetter:4,tideValue:4,eco:2,chemical:2,payEco:2},
+  {brand:"Tide",stain:3,expensive:5,gentle:5,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:3,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:4,payEco:3},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:5,payEco:5},
+  {brand:"Other",stain:3,expensive:5,gentle:3,arielBetter:3,tideValue:5,eco:4,chemical:2,payEco:2},
+  {brand:"Tide",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:5,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:3,arielBetter:4,tideValue:4,eco:5,chemical:2,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:5,chemical:3,payEco:3},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:4,tideValue:3,eco:5,chemical:3,payEco:2},
+  {brand:"Ghadi",stain:4,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:5,payEco:5},
+  {brand:"Ariel",stain:4,expensive:4,gentle:3,arielBetter:3,tideValue:4,eco:5,chemical:3,payEco:4},
+  {brand:"Ghadi",stain:4,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:2,chemical:5,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:3,tideValue:4,eco:5,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:2,arielBetter:4,tideValue:4,eco:4,chemical:2,payEco:5},
+  {brand:"Ghadi",stain:4,expensive:3,gentle:5,arielBetter:5,tideValue:4,eco:4,chemical:5,payEco:2},
+  {brand:"Ariel",stain:3,expensive:5,gentle:3,arielBetter:4,tideValue:5,eco:4,chemical:2,payEco:4},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:3,tideValue:5,eco:2,chemical:3,payEco:5},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:3,tideValue:5,eco:4,chemical:3,payEco:3},
+  {brand:"Ghadi",stain:3,expensive:5,gentle:4,arielBetter:5,tideValue:4,eco:2,chemical:2,payEco:4},
+  {brand:"Ariel",stain:5,expensive:4,gentle:5,arielBetter:4,tideValue:4,eco:3,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:3,expensive:3,gentle:2,arielBetter:4,tideValue:4,eco:4,chemical:2,payEco:5},
+  {brand:"Ghadi",stain:4,expensive:3,gentle:5,arielBetter:5,tideValue:4,eco:4,chemical:5,payEco:2},
+  {brand:"Ariel",stain:3,expensive:5,gentle:3,arielBetter:3,tideValue:5,eco:4,chemical:2,payEco:2},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:3,tideValue:4,eco:5,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:5,arielBetter:4,tideValue:4,eco:3,chemical:5,payEco:4},
+  {brand:"Other",stain:4,expensive:5,gentle:3,arielBetter:4,tideValue:4,eco:5,chemical:2,payEco:3},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:5,payEco:5},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:4,chemical:2,payEco:3},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:4,arielBetter:3,tideValue:5,eco:4,chemical:3,payEco:5},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:3,tideValue:5,eco:4,chemical:3,payEco:5},
+  {brand:"Tide",stain:5,expensive:5,gentle:5,arielBetter:4,tideValue:4,eco:2,chemical:2,payEco:2},
+  {brand:"Tide",stain:3,expensive:5,gentle:5,arielBetter:3,tideValue:4,eco:4,chemical:5,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:3,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:4,payEco:3},
+  {brand:"Tide",stain:5,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:5,chemical:5,payEco:5},
+  {brand:"Other",stain:3,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:3,payEco:3},
+  {brand:"Tide",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:3,eco:3,chemical:4,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:3,eco:4,chemical:5,payEco:2},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:5,chemical:3,payEco:3},
+  {brand:"Ariel",stain:5,expensive:4,gentle:4,arielBetter:4,tideValue:3,eco:5,chemical:3,payEco:2},
+  {brand:"Ghadi",stain:4,expensive:4,gentle:4,arielBetter:4,tideValue:4,eco:3,chemical:5,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:3,arielBetter:3,tideValue:5,eco:4,chemical:2,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:4,gentle:3,arielBetter:4,tideValue:3,eco:3,chemical:3,payEco:4},
+  {brand:"Tide",stain:5,expensive:3,gentle:2,arielBetter:5,tideValue:3,eco:3,chemical:5,payEco:3},
+  {brand:"Tide",stain:5,expensive:5,gentle:4,arielBetter:4,tideValue:4,eco:5,chemical:4,payEco:4},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:3,arielBetter:4,tideValue:3,eco:5,chemical:4,payEco:4},
+  {brand:"Tide",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:3,eco:3,chemical:4,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:3,arielBetter:5,tideValue:4,eco:2,chemical:3,payEco:3},
+  {brand:"Tide",stain:4,expensive:3,gentle:4,arielBetter:4,tideValue:5,eco:3,chemical:4,payEco:4},
+  {brand:"Ariel",stain:4,expensive:5,gentle:4,arielBetter:5,tideValue:5,eco:5,chemical:3,payEco:3},
+  {brand:"Ariel",stain:4,expensive:4,gentle:3,arielBetter:3,tideValue:4,eco:5,chemical:3,payEco:4},
+  {brand:"Tide",stain:5,expensive:4,gentle:3,arielBetter:3,tideValue:5,eco:3,chemical:3,payEco:2},
+  {brand:"Ghadi",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:3,payEco:2},
+  {brand:"Surf Excel",stain:4,expensive:3,gentle:2,arielBetter:5,tideValue:4,eco:4,chemical:4,payEco:5},
+  {brand:"Surf Excel",stain:5,expensive:4,gentle:3,arielBetter:3,tideValue:5,eco:3,chemical:4,payEco:3},
+  {brand:"Surf Excel",stain:5,expensive:5,gentle:4,arielBetter:5,tideValue:4,eco:5,chemical:4,payEco:5},
+  {brand:"Other",stain:4,expensive:4,gentle:4,arielBetter:3,tideValue:5,eco:3,chemical:3,payEco:2},
+];
+
+const brands = ["Surf Excel","Ariel","Tide","Ghadi","Other"];
+const colors = {
+  "Surf Excel": { bg:"#185FA5", border:"#185FA5" },
+  "Ariel":      { bg:"#993556", border:"#993556" },
+  "Tide":       { bg:"#0F6E56", border:"#0F6E56" },
+  "Ghadi":      { bg:"#BA7517", border:"#BA7517" },
+  "Other":      { bg:"#5F5E5A", border:"#5F5E5A" }
+};
+
+function avg(arr){ return arr.reduce((s,v)=>s+v,0)/arr.length; }
+
+function brandStats(brand){
+  const rows = raw.filter(r=>r.brand===brand);
+  return {
+    n: rows.length,
+    stain: avg(rows.map(r=>r.stain)),
+    expensive: avg(rows.map(r=>r.expensive)),
+    gentle: avg(rows.map(r=>r.gentle)),
+    arielBetter: avg(rows.map(r=>r.arielBetter)),
+    tideValue: avg(rows.map(r=>r.tideValue)),
+    eco: avg(rows.map(r=>r.eco)),
+    chemical: avg(rows.map(r=>r.chemical)),
+    payEco: avg(rows.map(r=>r.payEco)),
+  };
+}
+
+const stats = {};
+brands.forEach(b=> stats[b]=brandStats(b));
+
+const axisConfigs = [
+  {
+    x: { key:"stain", label:"← Low Cleaning Power       High Cleaning Power →" },
+    y: { key:"expensive", label:"← Affordable       Expensive →", invert:false }
+  },
+  {
+    x: { key:"gentle", label:"← Harsh on Fabric       Gentle on Fabric →" },
+    y: { key:"eco", label:"← Low Eco-Friendliness       High Eco-Friendliness →" }
+  },
+  {
+    x: { key:"tideValue", label:"← Low Value for Money       High Value for Money →" },
+    y: { key:"payEco", label:"← Won't Pay Extra       Willing to Pay Premium →" }
+  }
+];
+
+let currentAxis = 0;
+let chartInst = null;
+
+function setAxis(idx){
+  [0,1,2].forEach(i=>{
+    document.getElementById('axisBtn'+i).classList.toggle('active', i===idx);
+  });
+  currentAxis = idx;
+  renderChart();
+}
+
+function renderChart(){
+  const ax = axisConfigs[currentAxis];
+  const datasets = brands.map(b=>{
+    const s = stats[b];
+    return {
+      label: b,
+      data:[{ x: s[ax.x.key], y: s[ax.y.key], r: Math.max(8, s.n * 1.2) }],
+      backgroundColor: colors[b].bg + 'CC',
+      borderColor: colors[b].border,
+      borderWidth: 1.5,
+    };
+  });
+
+  if(chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('mapChart'), {
+    type: 'bubble',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 24, bottom: 24, left: 8, right: 8 } },
+      scales: {
+        x: {
+          min: 1.5, max: 5.5,
+          grid: { color: 'rgba(128,128,128,0.12)', lineWidth:0.8 },
+          ticks: { display: false },
+          title: { display: true, text: ax.x.label, color: '#888780', font:{ size:11 } }
+        },
+        y: {
+          min: 1.5, max: 5.5,
+          grid: { color: 'rgba(128,128,128,0.12)', lineWidth:0.8 },
+          ticks: { display: false },
+          title: { display: true, text: ax.y.label, color: '#888780', font:{ size:11 } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const b = ctx.dataset.label;
+              const s = stats[b];
+              return [
+                ` ${b}`,
+                ` n = ${s.n} users`,
+                ` ${ax.x.label.split('       ')[1].replace(' →','')}: ${s[ax.x.key].toFixed(2)}`,
+                ` ${ax.y.label.split('       ')[1].replace(' →','')}: ${s[ax.y.key].toFixed(2)}`
+              ];
+            }
+          },
+          backgroundColor:'rgba(30,30,30,0.88)', titleColor:'#fff', bodyColor:'#ccc',
+          padding:10, cornerRadius:6, displayColors:false
+        }
+      }
+    },
+    plugins:[{
+      id:'brandLabels',
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        chart.data.datasets.forEach((ds,i)=>{
+          const meta = chart.getDatasetMeta(i);
+          if(!meta.hidden && meta.data[0]){
+            const pt = meta.data[0];
+            ctx.save();
+            ctx.fillStyle = colors[ds.label].border;
+            ctx.font = '500 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(ds.label, pt.x, pt.y - pt.options.radius - 6);
+            ctx.restore();
+          }
+        });
+      }
+    }]
+  });
+  renderStats();
+}
+
+function renderStats(){
+  const el = document.getElementById('brandStats');
+  el.innerHTML = brands.map(b=>{
+    const s = stats[b];
+    return `<div class="metric-card">
+      <p class="metric-label" style="color:${colors[b].border}; font-weight:500;">${b}</p>
+      <p class="metric-val">${s.n} <span style="font-size:13px;font-weight:400;color:var(--color-text-secondary)">users</span></p>
+      <p style="font-size:12px;color:var(--color-text-secondary);margin:4px 0 0;">Cleaning: ${s.stain.toFixed(1)} &nbsp; Price: ${s.expensive.toFixed(1)}</p>
+    </div>`;
+  }).join('');
+}
+
+renderChart();
+</script>
